@@ -1,3 +1,7 @@
+# Gmail API credentials (sensitive)
+credentials.json
+token.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

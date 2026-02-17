@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card stat-card platforms">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Platforms</h6>
+                <h2 class="card-title mb-0">{{ total_platforms }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card targets">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Targets</h6>
+                <h2 class="card-title mb-0">{{ total_targets }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card campaigns">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Campaigns</h6>
+                <h2 class="card-title mb-0">{{ total_campaigns }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card emails">
+            <div class="card-body">
+                <h6 class="card-subtitle text-muted">Emails</h6>
+                <h2 class="card-title mb-0">{{ total_emails }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Status Breakdowns -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-bullseye"></i> Targets by Status</div>
+            <div class="card-body">
+                {% if targets_by_status %}
+                    {% for status, count in targets_by_status.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>
+                            <span class="badge bg-{% if status == 'live' %}success{% elif status == 'rejected' %}danger{% elif status == 'contacted' %}info{% elif status == 'negotiating' %}warning{% elif status == 'approved' %}primary{% else %}secondary{% endif %} status-badge">
+                                {{ status|capitalize }}
+                            </span>
+                        </span>
+                        <strong>{{ count }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No targets yet.
+                        <a href="{{ url_for('main.target_create') }}">Add one</a>
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-envelope"></i> Emails by Status</div>
+            <div class="card-body">
+                {% if emails_by_status %}
+                    {% for status, count in emails_by_status.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>
+                            <span class="badge bg-{% if status == 'sent' %}success{% elif status == 'bounced' %}danger{% elif status == 'replied' %}info{% elif status == 'delivered' %}primary{% else %}secondary{% endif %} status-badge">
+                                {{ status|capitalize }}
+                            </span>
+                        </span>
+                        <strong>{{ count }}</strong>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">No emails yet.
+                        <a href="{{ url_for('main.email_create') }}">Compose one</a>
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-clock-history"></i> Recent Targets</div>
+            <ul class="list-group list-group-flush">
+                {% for target in recent_targets %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ url_for('main.target_edit', id=target.id) }}">
+                            {{ target.target_page_title or target.target_url|truncate(40) }}
+                        </a>
+                        <br><small class="text-muted">{{ target.platform.name }}</small>
+                    </div>
+                    <span class="badge bg-{% if target.status == 'live' %}success{% elif target.status == 'rejected' %}danger{% elif target.status == 'contacted' %}info{% elif target.status == 'negotiating' %}warning{% elif target.status == 'approved' %}primary{% else %}secondary{% endif %}">
+                        {{ target.status }}
+                    </span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted">No targets yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-clock-history"></i> Recent Emails</div>
+            <ul class="list-group list-group-flush">
+                {% for email in recent_emails %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{{ url_for('main.email_edit', id=email.id) }}">
+                            {{ email.subject|truncate(40) }}
+                        </a>
+                        <br><small class="text-muted">To: {{ email.recipient_email }}</small>
+                    </div>
+                    <span class="badge bg-{% if email.status == 'sent' %}success{% elif email.status == 'bounced' %}danger{% elif email.status == 'replied' %}info{% else %}secondary{% endif %}">
+                        {{ email.status }}
+                    </span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted">No emails yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
