@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Targets{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Targets</h2>
+    <a href="{{ url_for('main.target_create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Add Target
+    </a>
+</div>
+
+<!-- Status Filter -->
+<div class="mb-3">
+    <a href="{{ url_for('main.targets_list') }}"
+       class="btn btn-sm {% if not current_status %}btn-dark{% else %}btn-outline-dark{% endif %}">All</a>
+    {% for s in ['identified', 'contacted', 'negotiating', 'approved', 'live', 'rejected'] %}
+    <a href="{{ url_for('main.targets_list', status=s) }}"
+       class="btn btn-sm {% if current_status == s %}btn-dark{% else %}btn-outline-dark{% endif %}">
+        {{ s|capitalize }}
+    </a>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Platform</th>
+                    <th>Target URL</th>
+                    <th>Our URL</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Emails</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in targets %}
+                <tr>
+                    <td>{{ t.platform.name }}</td>
+                    <td>
+                        <a href="{{ t.target_url }}" target="_blank">
+                            {{ t.target_page_title or t.target_url|truncate(35) }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if t.our_url %}
+                            <a href="{{ t.our_url }}" target="_blank">{{ t.our_url|truncate(30) }}</a>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-{% if t.status == 'live' %}success{% elif t.status == 'rejected' %}danger{% elif t.status == 'contacted' %}info{% elif t.status == 'negotiating' %}warning{% elif t.status == 'approved' %}primary{% else %}secondary{% endif %}">
+                            {{ t.status }}
+                        </span>
+                    </td>
+                    <td class="priority-{{ t.priority }}">{{ t.priority|capitalize }}</td>
+                    <td>{{ t.emails.count() }}</td>
+                    <td>
+                        <a href="{{ url_for('main.email_create', target_id=t.id) }}"
+                           class="btn btn-sm btn-outline-primary" title="Compose email">
+                            <i class="bi bi-envelope-plus"></i>
+                        </a>
+                        <a href="{{ url_for('main.target_edit', id=t.id) }}"
+                           class="btn btn-sm btn-outline-secondary">Edit</a>
+                        <form method="POST" action="{{ url_for('main.target_delete', id=t.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Delete this target?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No targets found. <a href="{{ url_for('main.target_create') }}">Add one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

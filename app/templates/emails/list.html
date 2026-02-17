@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Emails{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Outreach Emails</h2>
+    <a href="{{ url_for('main.email_create') }}" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i> Compose Email
+    </a>
+</div>
+
+<!-- Status Filter -->
+<div class="mb-3">
+    <a href="{{ url_for('main.emails_list') }}"
+       class="btn btn-sm {% if not current_status %}btn-dark{% else %}btn-outline-dark{% endif %}">All</a>
+    {% for s in ['draft', 'sent', 'delivered', 'replied', 'bounced'] %}
+    <a href="{{ url_for('main.emails_list', status=s) }}"
+       class="btn btn-sm {% if current_status == s %}btn-dark{% else %}btn-outline-dark{% endif %}">
+        {{ s|capitalize }}
+    </a>
+    {% endfor %}
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Subject</th>
+                    <th>Recipient</th>
+                    <th>Target</th>
+                    <th>Campaign</th>
+                    <th>Status</th>
+                    <th>Sent At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in emails %}
+                <tr>
+                    <td><strong>{{ e.subject|truncate(40) }}</strong></td>
+                    <td>{{ e.recipient_email }}</td>
+                    <td>
+                        <a href="{{ url_for('main.target_edit', id=e.target_id) }}">
+                            {{ e.target.target_page_title or e.target.target_url|truncate(25) }}
+                        </a>
+                    </td>
+                    <td>{{ e.campaign.name if e.campaign else '—' }}</td>
+                    <td>
+                        <span class="badge bg-{% if e.status == 'sent' %}success{% elif e.status == 'bounced' %}danger{% elif e.status == 'replied' %}info{% elif e.status == 'delivered' %}primary{% else %}secondary{% endif %}">
+                            {{ e.status }}
+                        </span>
+                    </td>
+                    <td>{{ e.sent_at.strftime('%Y-%m-%d %H:%M') if e.sent_at else '—' }}</td>
+                    <td>
+                        {% if e.status == 'draft' %}
+                        <form method="POST" action="{{ url_for('main.email_send', id=e.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Send this email via Gmail?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-success" title="Send now">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </form>
+                        <a href="{{ url_for('main.email_edit', id=e.id) }}"
+                           class="btn btn-sm btn-outline-secondary">Edit</a>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('main.email_delete', id=e.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Delete this email?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        No emails yet. <a href="{{ url_for('main.email_create') }}">Compose one</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.stat-card {
+    border-left: 4px solid;
+    transition: transform 0.15s;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+.stat-card.platforms { border-left-color: #0d6efd; }
+.stat-card.targets   { border-left-color: #198754; }
+.stat-card.campaigns { border-left-color: #ffc107; }
+.stat-card.emails    { border-left-color: #dc3545; }
+
+.status-badge {
+    font-size: 0.8rem;
+}
+
+.table th {
+    white-space: nowrap;
+}
+
+.priority-high   { color: #dc3545; font-weight: 600; }
+.priority-medium { color: #ffc107; font-weight: 600; }
+.priority-low    { color: #6c757d; }
