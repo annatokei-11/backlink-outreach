@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Upload Platforms{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-3">Upload Platforms</h2>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        <label for="file" class="form-label">{{ form.file.label.text }}</label>
+                        {{ form.file(class="form-control", accept=".csv,.xlsx,.xls") }}
+                        {% for error in form.file.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                        <div class="form-text">Accepted formats: .csv, .xlsx, .xls</div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                        <a href="{{ url_for('main.platforms_list') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Column Mapping Guide
+            </div>
+            <div class="card-body">
+                <p class="mb-2">The importer auto-detects columns by header name. Use any of these names in your spreadsheet:</p>
+                <table class="table table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Field</th>
+                            <th>Accepted Column Names</th>
+                            <th>Required?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Platform Name</strong></td>
+                            <td>name, platform, website, site, blog</td>
+                            <td><span class="badge bg-warning text-dark">Recommended</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>URL</strong></td>
+                            <td>url, website url, link, domain, site url</td>
+                            <td><span class="badge bg-danger">Required</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Domain Authority</strong></td>
+                            <td>da, domain authority, dr, domain rating</td>
+                            <td><span class="badge bg-secondary">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contact Email</strong></td>
+                            <td>email, contact email, e-mail</td>
+                            <td><span class="badge bg-secondary">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contact Name</strong></td>
+                            <td>contact, contact name, person, editor</td>
+                            <td><span class="badge bg-secondary">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Notes</strong></td>
+                            <td>notes, comments, remarks</td>
+                            <td><span class="badge bg-secondary">Optional</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
