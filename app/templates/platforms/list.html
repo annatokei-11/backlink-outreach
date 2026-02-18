@@ -16,32 +16,88 @@
 
 <div class="card">
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover table-sm mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Name</th>
+                    <th>ID</th>
+                    <th>Tier</th>
+                    <th>Platform Name</th>
                     <th>URL</th>
-                    <th>DA</th>
-                    <th>Contact</th>
-                    <th>Targets</th>
+                    <th>Submission Type</th>
+                    <th>Topic to Submit</th>
+                    <th>Difficulty</th>
+                    <th>Contact/Editor</th>
+                    <th>Email</th>
+                    <th>Pitch Sent Date</th>
+                    <th>Article Sent Date</th>
+                    <th>Follow-up 1</th>
+                    <th>Follow-up 2</th>
+                    <th>Response Date</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Publication Date</th>
+                    <th>Live URL</th>
+                    <th>Backlink Confirmed</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in platforms %}
                 <tr>
+                    <td>{{ p.id }}</td>
+                    <td>{{ p.tier or '' }}</td>
                     <td><strong>{{ p.name }}</strong></td>
-                    <td><a href="{{ p.url }}" target="_blank">{{ p.url|truncate(40) }}</a></td>
-                    <td>{{ p.domain_authority or '—' }}</td>
+                    <td><a href="{{ p.url }}" target="_blank">{{ p.url|truncate(30) }}</a></td>
+                    <td>{{ p.submission_type or '' }}</td>
+                    <td>{{ p.topic_to_submit or '' }}</td>
                     <td>
-                        {% if p.contact_email %}
-                            {{ p.contact_name or '' }} &lt;{{ p.contact_email }}&gt;
-                        {% else %}
-                            <span class="text-muted">—</span>
+                        {% if p.difficulty == 'Easy' %}
+                            <span class="badge bg-success">Easy</span>
+                        {% elif p.difficulty == 'Medium' %}
+                            <span class="badge bg-warning text-dark">Medium</span>
+                        {% elif p.difficulty == 'Hard' %}
+                            <span class="badge bg-danger">Hard</span>
                         {% endif %}
                     </td>
-                    <td>{{ p.targets.count() }}</td>
+                    <td>{{ p.contact_name or '' }}</td>
+                    <td>{{ p.contact_email or '' }}</td>
+                    <td>{{ p.pitch_sent_date.strftime('%Y-%m-%d') if p.pitch_sent_date else '' }}</td>
+                    <td>{{ p.article_sent_date.strftime('%Y-%m-%d') if p.article_sent_date else '' }}</td>
+                    <td>{{ p.follow_up_1.strftime('%Y-%m-%d') if p.follow_up_1 else '' }}</td>
+                    <td>{{ p.follow_up_2.strftime('%Y-%m-%d') if p.follow_up_2 else '' }}</td>
+                    <td>{{ p.response_date.strftime('%Y-%m-%d') if p.response_date else '' }}</td>
                     <td>
+                        {% if p.status == 'Not Started' %}
+                            <span class="badge bg-secondary">Not Started</span>
+                        {% elif p.status == 'Pitch Sent' %}
+                            <span class="badge bg-info">Pitch Sent</span>
+                        {% elif p.status == 'Article Sent' %}
+                            <span class="badge bg-primary">Article Sent</span>
+                        {% elif p.status == 'Follow-up' %}
+                            <span class="badge bg-warning text-dark">Follow-up</span>
+                        {% elif p.status == 'Published' %}
+                            <span class="badge bg-success">Published</span>
+                        {% elif p.status == 'Rejected' %}
+                            <span class="badge bg-danger">Rejected</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ p.status or 'Not Started' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.notes|truncate(40) if p.notes else '' }}</td>
+                    <td>{{ p.publication_date.strftime('%Y-%m-%d') if p.publication_date else '' }}</td>
+                    <td>
+                        {% if p.live_url %}
+                            <a href="{{ p.live_url }}" target="_blank">{{ p.live_url|truncate(25) }}</a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.backlink_confirmed %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="text-muted">No</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
                         <a href="{{ url_for('main.platform_edit', id=p.id) }}"
                            class="btn btn-sm btn-outline-secondary">Edit</a>
                         <form method="POST" action="{{ url_for('main.platform_delete', id=p.id) }}"
@@ -54,8 +110,9 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
+                    <td colspan="20" class="text-center text-muted py-4">
                         No platforms yet. <a href="{{ url_for('main.platform_create') }}">Add one</a>
+                        or <a href="{{ url_for('main.platform_upload') }}">upload a spreadsheet</a>.
                     </td>
                 </tr>
                 {% endfor %}

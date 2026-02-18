@@ -71,14 +71,8 @@ def platforms_list():
 def platform_create():
     form = PlatformForm()
     if form.validate_on_submit():
-        platform = Platform(
-            name=form.name.data,
-            url=form.url.data,
-            domain_authority=form.domain_authority.data,
-            contact_email=form.contact_email.data,
-            contact_name=form.contact_name.data,
-            notes=form.notes.data,
-        )
+        platform = Platform()
+        form.populate_obj(platform)
         db.session.add(platform)
         db.session.commit()
         flash('Platform created.', 'success')
@@ -157,22 +151,25 @@ def platform_upload():
             if not url.startswith(('http://', 'https://')):
                 url = 'https://' + url
 
-            da_raw = _get_mapped(row, headers, col_map, 'domain_authority')
-            da = None
-            if da_raw:
-                try:
-                    da = int(float(da_raw))
-                    da = max(0, min(100, da))
-                except (ValueError, TypeError):
-                    da = None
-
             platform = Platform(
+                tier=(_get_mapped(row, headers, col_map, 'tier') or '').strip() or None,
                 name=name.strip(),
                 url=url.strip(),
-                domain_authority=da,
-                contact_email=(_get_mapped(row, headers, col_map, 'contact_email') or '').strip() or None,
+                submission_type=(_get_mapped(row, headers, col_map, 'submission_type') or '').strip() or None,
+                topic_to_submit=(_get_mapped(row, headers, col_map, 'topic_to_submit') or '').strip() or None,
+                difficulty=(_get_mapped(row, headers, col_map, 'difficulty') or '').strip() or None,
                 contact_name=(_get_mapped(row, headers, col_map, 'contact_name') or '').strip() or None,
+                contact_email=(_get_mapped(row, headers, col_map, 'contact_email') or '').strip() or None,
+                pitch_sent_date=_parse_date(_get_mapped(row, headers, col_map, 'pitch_sent_date')),
+                article_sent_date=_parse_date(_get_mapped(row, headers, col_map, 'article_sent_date')),
+                follow_up_1=_parse_date(_get_mapped(row, headers, col_map, 'follow_up_1')),
+                follow_up_2=_parse_date(_get_mapped(row, headers, col_map, 'follow_up_2')),
+                response_date=_parse_date(_get_mapped(row, headers, col_map, 'response_date')),
+                status=(_get_mapped(row, headers, col_map, 'status') or '').strip() or 'Not Started',
                 notes=(_get_mapped(row, headers, col_map, 'notes') or '').strip() or None,
+                publication_date=_parse_date(_get_mapped(row, headers, col_map, 'publication_date')),
+                live_url=(_get_mapped(row, headers, col_map, 'live_url') or '').strip() or None,
+                backlink_confirmed=_parse_bool(_get_mapped(row, headers, col_map, 'backlink_confirmed')),
             )
             db.session.add(platform)
             imported += 1
@@ -215,12 +212,24 @@ def _auto_map_columns(headers):
     mapping = {}
 
     patterns = {
+        'tier': ['tier'],
         'name': ['name', 'platform', 'website', 'site', 'site name', 'platform name', 'website name', 'blog'],
         'url': ['url', 'website url', 'link', 'domain', 'site url', 'platform url', 'web address'],
-        'domain_authority': ['da', 'domain authority', 'dr', 'domain rating', 'authority'],
+        'submission_type': ['submission type', 'submission_type', 'type', 'submit type'],
+        'topic_to_submit': ['topic to submit', 'topic_to_submit', 'topic', 'article topic'],
+        'difficulty': ['difficulty', 'level'],
+        'contact_name': ['contact', 'contact name', 'contact_name', 'person', 'editor', 'author', 'contact/editor'],
         'contact_email': ['email', 'contact email', 'contact_email', 'e-mail', 'email address'],
-        'contact_name': ['contact', 'contact name', 'contact_name', 'person', 'editor', 'author'],
+        'pitch_sent_date': ['pitch sent date', 'pitch_sent_date', 'pitch sent', 'pitch date'],
+        'article_sent_date': ['article sent date', 'article_sent_date', 'article sent', 'article date'],
+        'follow_up_1': ['follow-up 1', 'follow_up_1', 'followup 1', 'follow up 1'],
+        'follow_up_2': ['follow-up 2', 'follow_up_2', 'followup 2', 'follow up 2'],
+        'response_date': ['response date', 'response_date', 'response'],
+        'status': ['status'],
         'notes': ['notes', 'comments', 'note', 'comment', 'remarks'],
+        'publication_date': ['publication date', 'publication_date', 'published date', 'pub date'],
+        'live_url': ['live url', 'live_url', 'published url', 'article url', 'live link'],
+        'backlink_confirmed': ['backlink confirmed', 'backlink_confirmed', 'backlink', 'confirmed'],
     }
 
     for field, keywords in patterns.items():
@@ -238,6 +247,24 @@ def _get_mapped(row, headers, col_map, field):
     if idx is not None and idx < len(row):
         return row[idx]
     return None
+
+
+def _parse_date(value):
+    """Try to parse a date string from various formats."""
+    if not value or not value.strip():
+        return None
+    from dateutil import parser as dateutil_parser
+    try:
+        return dateutil_parser.parse(value.strip()).date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_bool(value):
+    """Parse a boolean from common truthy strings."""
+    if not value:
+        return False
+    return value.strip().lower() in ('yes', 'true', '1', 'y', 'confirmed')
 
 
 # ---------------------------------------------------------------------------

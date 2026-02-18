@@ -1,18 +1,50 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
 from wtforms import (StringField, TextAreaField, SelectField, IntegerField,
-                     SubmitField, HiddenField)
+                     SubmitField, HiddenField, DateField, BooleanField)
 from wtforms.validators import DataRequired, Email, Optional, URL, NumberRange
 
 
 class PlatformForm(FlaskForm):
+    tier = SelectField('Tier', choices=[
+        ('', '-- Select --'),
+        ('T1', 'T1'),
+        ('T2', 'T2'),
+        ('T3', 'T3'),
+    ], validators=[Optional()])
     name = StringField('Platform Name', validators=[DataRequired()])
     url = StringField('URL', validators=[DataRequired(), URL()])
-    domain_authority = IntegerField('Domain Authority',
-                                   validators=[Optional(), NumberRange(0, 100)])
-    contact_email = StringField('Contact Email', validators=[Optional(), Email()])
-    contact_name = StringField('Contact Name', validators=[Optional()])
+    submission_type = SelectField('Submission Type', choices=[
+        ('', '-- Select --'),
+        ('Full Article', 'Full Article'),
+        ('Pitch First', 'Pitch First'),
+    ], validators=[Optional()])
+    topic_to_submit = StringField('Topic to Submit', validators=[Optional()])
+    difficulty = SelectField('Difficulty', choices=[
+        ('', '-- Select --'),
+        ('Easy', 'Easy'),
+        ('Medium', 'Medium'),
+        ('Hard', 'Hard'),
+    ], validators=[Optional()])
+    contact_name = StringField('Contact/Editor', validators=[Optional()])
+    contact_email = StringField('Email', validators=[Optional(), Email()])
+    pitch_sent_date = DateField('Pitch Sent Date', validators=[Optional()])
+    article_sent_date = DateField('Article Sent Date', validators=[Optional()])
+    follow_up_1 = DateField('Follow-up 1', validators=[Optional()])
+    follow_up_2 = DateField('Follow-up 2', validators=[Optional()])
+    response_date = DateField('Response Date', validators=[Optional()])
+    status = SelectField('Status', choices=[
+        ('Not Started', 'Not Started'),
+        ('Pitch Sent', 'Pitch Sent'),
+        ('Article Sent', 'Article Sent'),
+        ('Follow-up', 'Follow-up'),
+        ('Published', 'Published'),
+        ('Rejected', 'Rejected'),
+    ], validators=[Optional()])
     notes = TextAreaField('Notes', validators=[Optional()])
+    publication_date = DateField('Publication Date', validators=[Optional()])
+    live_url = StringField('Live URL', validators=[Optional()])
+    backlink_confirmed = BooleanField('Backlink Confirmed')
     submit = SubmitField('Save Platform')
 
 
