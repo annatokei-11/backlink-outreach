@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed, FileRequired
 from wtforms import (StringField, TextAreaField, SelectField, IntegerField,
                      SubmitField, HiddenField)
 from wtforms.validators import DataRequired, Email, Optional, URL, NumberRange
@@ -63,3 +64,11 @@ class OutreachEmailForm(FlaskForm):
 class SendEmailForm(FlaskForm):
     email_id = HiddenField('Email ID', validators=[DataRequired()])
     submit = SubmitField('Send Email')
+
+
+class UploadPlatformsForm(FlaskForm):
+    file = FileField('Upload File', validators=[
+        FileRequired(),
+        FileAllowed(['csv', 'xlsx', 'xls'], 'Only CSV and Excel files allowed.')
+    ])
+    submit = SubmitField('Upload & Import')

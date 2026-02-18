@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from app import db
 from app.models import Platform, Target, Campaign, OutreachEmail
 from app.forms import (PlatformForm, TargetForm, CampaignForm,
-                       OutreachEmailForm, SendEmailForm)
+                       OutreachEmailForm, SendEmailForm, UploadPlatformsForm)
 from app.services.gmail_service import GmailService
 
 main_bp = Blueprint('main', __name__)
@@ -105,6 +105,139 @@ def platform_delete(id):
     db.session.commit()
     flash('Platform deleted.', 'success')
     return redirect(url_for('main.platforms_list'))
+
+
+@main_bp.route('/platforms/upload', methods=['GET', 'POST'])
+def platform_upload():
+    form = UploadPlatformsForm()
+    if form.validate_on_submit():
+        file = form.file.data
+        filename = file.filename.lower()
+
+        try:
+            rows = _parse_upload_file(file, filename)
+        except Exception as e:
+            flash(f'Could not read file: {e}', 'danger')
+            return render_template('platforms/upload.html', form=form)
+
+        if not rows:
+            flash('File is empty or has no data rows.', 'warning')
+            return render_template('platforms/upload.html', form=form)
+
+        headers = [h.strip().lower() for h in rows[0]]
+        col_map = _auto_map_columns(headers)
+
+        if 'name' not in col_map and 'url' not in col_map:
+            flash(
+                f'Could not detect a Name or URL column. '
+                f'Found columns: {", ".join(rows[0])}. '
+                f'Please rename at least one column to "Name" or "URL".',
+                'danger',
+            )
+            return render_template('platforms/upload.html', form=form)
+
+        imported = 0
+        skipped = []
+        for row_num, row in enumerate(rows[1:], start=2):
+            if len(row) < len(headers):
+                row += [''] * (len(headers) - len(row))
+
+            name = _get_mapped(row, headers, col_map, 'name')
+            url = _get_mapped(row, headers, col_map, 'url')
+
+            if not name and not url:
+                continue  # skip blank rows
+
+            if not name:
+                name = url
+            if not url:
+                skipped.append(f'Row {row_num}: missing URL')
+                continue
+
+            if not url.startswith(('http://', 'https://')):
+                url = 'https://' + url
+
+            da_raw = _get_mapped(row, headers, col_map, 'domain_authority')
+            da = None
+            if da_raw:
+                try:
+                    da = int(float(da_raw))
+                    da = max(0, min(100, da))
+                except (ValueError, TypeError):
+                    da = None
+
+            platform = Platform(
+                name=name.strip(),
+                url=url.strip(),
+                domain_authority=da,
+                contact_email=(_get_mapped(row, headers, col_map, 'contact_email') or '').strip() or None,
+                contact_name=(_get_mapped(row, headers, col_map, 'contact_name') or '').strip() or None,
+                notes=(_get_mapped(row, headers, col_map, 'notes') or '').strip() or None,
+            )
+            db.session.add(platform)
+            imported += 1
+
+        db.session.commit()
+
+        msg = f'Imported {imported} platform{"s" if imported != 1 else ""}.'
+        if skipped:
+            msg += f' Skipped {len(skipped)}: {"; ".join(skipped[:5])}'
+        flash(msg, 'success')
+        return redirect(url_for('main.platforms_list'))
+
+    return render_template('platforms/upload.html', form=form)
+
+
+def _parse_upload_file(file, filename):
+    """Parse CSV or Excel file and return list of rows (each row is a list of strings)."""
+    import csv
+    import io
+
+    if filename.endswith('.csv'):
+        content = file.read().decode('utf-8-sig')
+        reader = csv.reader(io.StringIO(content))
+        return [row for row in reader if any(cell.strip() for cell in row)]
+    else:
+        import openpyxl
+        wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
+        ws = wb.active
+        rows = []
+        for row in ws.iter_rows(values_only=True):
+            str_row = [str(cell) if cell is not None else '' for cell in row]
+            if any(cell.strip() for cell in str_row):
+                rows.append(str_row)
+        wb.close()
+        return rows
+
+
+def _auto_map_columns(headers):
+    """Map Platform fields to column indices based on common header names."""
+    mapping = {}
+
+    patterns = {
+        'name': ['name', 'platform', 'website', 'site', 'site name', 'platform name', 'website name', 'blog'],
+        'url': ['url', 'website url', 'link', 'domain', 'site url', 'platform url', 'web address'],
+        'domain_authority': ['da', 'domain authority', 'dr', 'domain rating', 'authority'],
+        'contact_email': ['email', 'contact email', 'contact_email', 'e-mail', 'email address'],
+        'contact_name': ['contact', 'contact name', 'contact_name', 'person', 'editor', 'author'],
+        'notes': ['notes', 'comments', 'note', 'comment', 'remarks'],
+    }
+
+    for field, keywords in patterns.items():
+        for idx, header in enumerate(headers):
+            if header in keywords:
+                mapping[field] = idx
+                break
+
+    return mapping
+
+
+def _get_mapped(row, headers, col_map, field):
+    """Get a value from a row using the column mapping."""
+    idx = col_map.get(field)
+    if idx is not None and idx < len(row):
+        return row[idx]
+    return None
 
 
 # ---------------------------------------------------------------------------
