@@ -6,12 +6,24 @@ class Platform(db.Model):
     __tablename__ = 'platforms'
 
     id = db.Column(db.Integer, primary_key=True)
+    tier = db.Column(db.String(10))                       # T1, T2, T3
     name = db.Column(db.String(200), nullable=False)
     url = db.Column(db.String(500), nullable=False)
-    domain_authority = db.Column(db.Integer)
-    contact_email = db.Column(db.String(200))
-    contact_name = db.Column(db.String(200))
+    submission_type = db.Column(db.String(50))             # Full Article, Pitch First
+    topic_to_submit = db.Column(db.String(300))
+    difficulty = db.Column(db.String(20))                  # Easy, Medium, Hard
+    contact_name = db.Column(db.String(200))               # Contact/Editor
+    contact_email = db.Column(db.String(200))              # Email
+    pitch_sent_date = db.Column(db.Date)
+    article_sent_date = db.Column(db.Date)
+    follow_up_1 = db.Column(db.Date)
+    follow_up_2 = db.Column(db.Date)
+    response_date = db.Column(db.Date)
+    status = db.Column(db.String(50), default='Not Started')
     notes = db.Column(db.Text)
+    publication_date = db.Column(db.Date)
+    live_url = db.Column(db.String(500))
+    backlink_confirmed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))

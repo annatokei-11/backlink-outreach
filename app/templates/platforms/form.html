@@ -9,33 +9,46 @@
         <form method="POST">
             {{ form.hidden_tag() }}
 
-            <div class="mb-3">
-                {{ form.name.label(class="form-label") }}
-                {{ form.name(class="form-control", placeholder="e.g. TechCrunch") }}
-                {% for error in form.name.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-            </div>
-
-            <div class="mb-3">
-                {{ form.url.label(class="form-label") }}
-                {{ form.url(class="form-control", placeholder="https://example.com") }}
-                {% for error in form.url.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
+            <div class="row">
+                <div class="col-md-2 mb-3">
+                    {{ form.tier.label(class="form-label") }}
+                    {{ form.tier(class="form-select") }}
+                </div>
+                <div class="col-md-5 mb-3">
+                    {{ form.name.label(class="form-label") }}
+                    {{ form.name(class="form-control", placeholder="e.g. The Write Life") }}
+                    {% for error in form.name.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-5 mb-3">
+                    {{ form.url.label(class="form-label") }}
+                    {{ form.url(class="form-control", placeholder="https://example.com/write-for-us/") }}
+                    {% for error in form.url.errors %}
+                        <div class="text-danger small">{{ error }}</div>
+                    {% endfor %}
+                </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    {{ form.domain_authority.label(class="form-label") }}
-                    {{ form.domain_authority(class="form-control", placeholder="0-100") }}
-                    {% for error in form.domain_authority.errors %}
-                        <div class="text-danger small">{{ error }}</div>
-                    {% endfor %}
+                    {{ form.submission_type.label(class="form-label") }}
+                    {{ form.submission_type(class="form-select") }}
                 </div>
                 <div class="col-md-4 mb-3">
+                    {{ form.topic_to_submit.label(class="form-label") }}
+                    {{ form.topic_to_submit(class="form-control", placeholder="e.g. Book Proposal Mistakes") }}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.difficulty.label(class="form-label") }}
+                    {{ form.difficulty(class="form-select") }}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
                     {{ form.contact_name.label(class="form-label") }}
-                    {{ form.contact_name(class="form-control") }}
+                    {{ form.contact_name(class="form-control", placeholder="e.g. Victoria Strauss") }}
                 </div>
                 <div class="col-md-4 mb-3">
                     {{ form.contact_email.label(class="form-label") }}
@@ -43,6 +56,59 @@
                     {% for error in form.contact_email.errors %}
                         <div class="text-danger small">{{ error }}</div>
                     {% endfor %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.status.label(class="form-label") }}
+                    {{ form.status(class="form-select") }}
+                </div>
+            </div>
+
+            <hr>
+            <h6 class="text-muted mb-3">Outreach Dates</h6>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    {{ form.pitch_sent_date.label(class="form-label") }}
+                    {{ form.pitch_sent_date(class="form-control", type="date") }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {{ form.article_sent_date.label(class="form-label") }}
+                    {{ form.article_sent_date(class="form-control", type="date") }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {{ form.follow_up_1.label(class="form-label") }}
+                    {{ form.follow_up_1(class="form-control", type="date") }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {{ form.follow_up_2.label(class="form-label") }}
+                    {{ form.follow_up_2(class="form-control", type="date") }}
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    {{ form.response_date.label(class="form-label") }}
+                    {{ form.response_date(class="form-control", type="date") }}
+                </div>
+                <div class="col-md-3 mb-3">
+                    {{ form.publication_date.label(class="form-label") }}
+                    {{ form.publication_date(class="form-control", type="date") }}
+                </div>
+            </div>
+
+            <hr>
+            <h6 class="text-muted mb-3">Publication</h6>
+
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    {{ form.live_url.label(class="form-label") }}
+                    {{ form.live_url(class="form-control", placeholder="https://example.com/your-article") }}
+                </div>
+                <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="form-check">
+                        {{ form.backlink_confirmed(class="form-check-input") }}
+                        {{ form.backlink_confirmed.label(class="form-check-label") }}
+                    </div>
                 </div>
             </div>
 
