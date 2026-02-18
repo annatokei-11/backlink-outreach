@@ -101,6 +101,15 @@ def platform_delete(id):
     return redirect(url_for('main.platforms_list'))
 
 
+@main_bp.route('/platforms/delete-all', methods=['POST'])
+def platform_delete_all():
+    count = Platform.query.count()
+    Platform.query.delete()
+    db.session.commit()
+    flash(f'Deleted all {count} platforms.', 'success')
+    return redirect(url_for('main.platforms_list'))
+
+
 @main_bp.route('/platforms/upload', methods=['GET', 'POST'])
 def platform_upload():
     form = UploadPlatformsForm()
