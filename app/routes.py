@@ -727,3 +727,51 @@ def settings():
     return render_template('settings.html',
                            api_keys=AppSetting.API_KEYS,
                            current_keys=current_keys)
+
+
+@main_bp.route('/settings/test-apis', methods=['POST'])
+def test_apis():
+    """Test each configured API key and report results."""
+    import requests as http_requests
+    from app.services.email_finder import _get_key
+
+    results = {}
+
+    # Test Serper
+    serper_key = _get_key('SERPER_API_KEY')
+    if serper_key:
+        try:
+            resp = http_requests.post(
+                'https://google.serper.dev/search',
+                json={'q': 'test', 'num': 1},
+                headers={'X-API-KEY': serper_key, 'Content-Type': 'application/json'},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                results['SERPER_API_KEY'] = {'ok': True, 'msg': 'Working'}
+            else:
+                results['SERPER_API_KEY'] = {'ok': False, 'msg': f'HTTP {resp.status_code}: {resp.text[:100]}'}
+        except Exception as e:
+            results['SERPER_API_KEY'] = {'ok': False, 'msg': str(e)[:100]}
+    else:
+        results['SERPER_API_KEY'] = {'ok': False, 'msg': 'Not configured'}
+
+    # Test OpenAI
+    openai_key = _get_key('OPENAI_API_KEY')
+    if openai_key:
+        try:
+            resp = http_requests.get(
+                'https://api.openai.com/v1/models',
+                headers={'Authorization': f'Bearer {openai_key}'},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                results['OPENAI_API_KEY'] = {'ok': True, 'msg': 'Working'}
+            else:
+                results['OPENAI_API_KEY'] = {'ok': False, 'msg': f'HTTP {resp.status_code}: {resp.text[:100]}'}
+        except Exception as e:
+            results['OPENAI_API_KEY'] = {'ok': False, 'msg': str(e)[:100]}
+    else:
+        results['OPENAI_API_KEY'] = {'ok': False, 'msg': 'Not configured'}
+
+    return jsonify(results)
