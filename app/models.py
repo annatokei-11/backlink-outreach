@@ -2,6 +2,41 @@ from datetime import datetime, timezone
 from app import db
 
 
+class AppSetting(db.Model):
+    """Key-value store for app settings (API keys, etc.)."""
+    __tablename__ = 'app_settings'
+
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.Text, nullable=False, default='')
+
+    @staticmethod
+    def get(key, default=''):
+        row = AppSetting.query.get(key)
+        return row.value if row else default
+
+    @staticmethod
+    def set(key, value):
+        row = AppSetting.query.get(key)
+        if row:
+            row.value = value
+        else:
+            row = AppSetting(key=key, value=value)
+            db.session.add(row)
+
+    # All configurable API key names
+    API_KEYS = [
+        ('KENDO_API_KEY', 'Kendo Email'),
+        ('SALESQL_API_KEY', 'SalesQL'),
+        ('APOLLO_API_KEY', 'Apollo.io'),
+        ('ANYMAIL_API_KEY', 'AnyMail Finder'),
+        ('SNOV_CLIENT_ID', 'Snov.io Client ID'),
+        ('SNOV_CLIENT_SECRET', 'Snov.io Client Secret'),
+        ('ROCKETREACH_API_KEY', 'RocketReach'),
+        ('SERPER_API_KEY', 'Serper (Google Search)'),
+        ('OPENAI_API_KEY', 'OpenAI'),
+    ]
+
+
 class Platform(db.Model):
     __tablename__ = 'platforms'
 

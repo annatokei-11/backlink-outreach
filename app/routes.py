@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 
 from app import db
-from app.models import Platform, Target, Campaign, OutreachEmail, EmailTemplate
+from app.models import Platform, Target, Campaign, OutreachEmail, EmailTemplate, AppSetting
 from app.forms import (PlatformForm, TargetForm, CampaignForm,
                        OutreachEmailForm, SendEmailForm, UploadPlatformsForm,
                        EmailTemplateForm, BulkSendForm)
@@ -703,3 +703,27 @@ def bulk_send_preview():
 
     subject, body = template.render(platform)
     return jsonify({'subject': subject, 'body': body})
+
+
+# ---------------------------------------------------------------------------
+# Settings (API Keys)
+# ---------------------------------------------------------------------------
+
+@main_bp.route('/settings', methods=['GET', 'POST'])
+def settings():
+    if request.method == 'POST':
+        for key, label in AppSetting.API_KEYS:
+            value = request.form.get(key, '').strip()
+            AppSetting.set(key, value)
+        db.session.commit()
+        flash('API keys saved.', 'success')
+        return redirect(url_for('main.settings'))
+
+    # Load current values
+    current_keys = {}
+    for key, label in AppSetting.API_KEYS:
+        current_keys[key] = AppSetting.get(key, '')
+
+    return render_template('settings.html',
+                           api_keys=AppSetting.API_KEYS,
+                           current_keys=current_keys)
