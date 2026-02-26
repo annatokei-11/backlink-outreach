@@ -104,113 +104,128 @@ def _get_key(name: str) -> str:
     return current_app.config.get(name, '')
 
 
+def _parse_openai_json(raw: str) -> Optional[dict]:
+    """Parse JSON from OpenAI response, stripping markdown fences if present."""
+    if not raw:
+        return None
+    cleaned = raw.strip()
+    if cleaned.startswith('```'):
+        cleaned = cleaned.split('```')[1]
+        if cleaned.startswith('json'):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    try:
+        return json.loads(cleaned)
+    except Exception:
+        return None
+
+
 def find_linkedin(contact_name: str, platform_name: str) -> Tuple[Optional[str], str]:
-    """Two-phase LinkedIn search: gather intelligence then targeted search."""
+    """Search for a LinkedIn profile using Serper + OpenAI verification.
+
+    Strategy (simpler and more reliable):
+    1. Direct LinkedIn search with name + company
+    2. If no results, try name only
+    3. If multiple results, use OpenAI to pick the best match
+    4. If only one result, use it directly
+    """
     serper_key = _get_key('SERPER_API_KEY')
     openai_key = _get_key('OPENAI_API_KEY')
 
     if not serper_key:
-        return None, 'No Serper API key configured'
+        return None, 'No Serper API key — add it in Settings'
     if not openai_key:
-        return None, 'No OpenAI API key configured'
+        return None, 'No OpenAI API key — add it in Settings'
 
-    # Phase 1 — broad search + scrape for intel
-    data = _serper_search(f'"{contact_name}" "{platform_name}"', serper_key, 10)
-    if not data or 'organic' not in data:
-        return None, 'No search results'
-
-    combined = ''
-    for result in data['organic'][:5]:
-        link = result.get('link', '')
-        if link:
-            combined += '\n' + _fetch_page_text(link)[:1000]
-
-    # Check if LinkedIn URL already in scraped content
-    m = re.search(r'linkedin\.com/in/([a-zA-Z0-9_-]+)', combined)
-    if m:
-        return f'https://www.linkedin.com/in/{m.group(1)}', 'Found in page content'
-
-    # Extract intelligence via OpenAI
-    intel = {}
-    raw = _openai_chat(
-        f'Extract info about {contact_name} from {platform_name}.\nContent:\n{combined[:2000]}\n'
-        'Return JSON: {{"company":"...","title":"...","location":"..."}}',
-        'Information extraction. Respond only with valid JSON.',
-        openai_key,
-    )
-    if raw:
-        try:
-            cleaned = raw
-            if cleaned.startswith('```'):
-                cleaned = cleaned.split('```')[1]
-                if cleaned.startswith('json'):
-                    cleaned = cleaned[4:]
-                cleaned = cleaned.strip()
-            intel = json.loads(cleaned)
-        except Exception:
-            pass
-
-    # Phase 2 — targeted LinkedIn queries (up to 3 attempts)
     name_parts = contact_name.strip().split()
+
+    # Build queries in priority order
     queries = [
+        f'"{contact_name}" "{platform_name}" site:linkedin.com/in/',
         f'"{contact_name}" site:linkedin.com/in/',
     ]
-    company = intel.get('company', '')
-    if company and company != 'Unknown':
-        queries.insert(0, f'"{contact_name}" {company} site:linkedin.com/in/')
     if len(name_parts) >= 2:
         queries.append(f'{name_parts[0]} {name_parts[-1]} site:linkedin.com/in/')
 
-    for query in queries[:3]:
+    all_linkedin_results = []
+    search_errors = []
+
+    for query in queries:
+        logger.info('LinkedIn search query: %s', query)
         data = _serper_search(query, serper_key, 10)
-        if not data or 'organic' not in data:
+
+        if data is None:
+            search_errors.append(f'Serper returned no data for: {query}')
             time.sleep(0.3)
             continue
 
-        linkedin_results = []
+        if 'organic' not in data:
+            # Check for error messages from Serper
+            if 'message' in data:
+                search_errors.append(f'Serper error: {data["message"]}')
+            else:
+                search_errors.append(f'No organic results for: {query}')
+            time.sleep(0.3)
+            continue
+
         for r in data['organic']:
             link = r.get('link', '')
             if 'linkedin.com/in/' in link:
-                linkedin_results.append({
-                    'url': link.split('?')[0],
-                    'title': r.get('title', ''),
-                    'snippet': r.get('snippet', ''),
-                })
+                url = link.split('?')[0].rstrip('/')
+                # Deduplicate
+                if not any(existing['url'] == url for existing in all_linkedin_results):
+                    all_linkedin_results.append({
+                        'url': url,
+                        'title': r.get('title', ''),
+                        'snippet': r.get('snippet', ''),
+                    })
 
-        if not linkedin_results:
-            time.sleep(0.3)
-            continue
-
-        # Ask OpenAI to pick the right profile
-        results_text = '\n'.join(
-            f'{i+1}. {r["title"]} — {r["url"]}\n   {r["snippet"]}'
-            for i, r in enumerate(linkedin_results)
-        )
-        analysis = _openai_chat(
-            f'Find "{contact_name}" from "{platform_name}" (company: {company}).\n'
-            f'LinkedIn results:\n{results_text}\n'
-            'Return JSON: {{"match": true/false, "url": "...", "confidence": 0-100}}',
-            'LinkedIn profile analyst. Respond only with valid JSON.',
-            openai_key,
-        )
-        if analysis:
-            try:
-                cleaned = analysis
-                if cleaned.startswith('```'):
-                    cleaned = cleaned.split('```')[1]
-                    if cleaned.startswith('json'):
-                        cleaned = cleaned[4:]
-                    cleaned = cleaned.strip()
-                result = json.loads(cleaned)
-                if result.get('match') and result.get('url'):
-                    url = result['url'].split('?')[0]
-                    if 'linkedin.com/in/' in url:
-                        return url, f'Found (confidence {result.get("confidence", "?")}%)'
-            except Exception:
-                pass
+        # If we found results, stop searching
+        if all_linkedin_results:
+            break
         time.sleep(0.3)
 
-    return None, 'LinkedIn profile not found'
+    if not all_linkedin_results:
+        error_detail = '; '.join(search_errors) if search_errors else 'No LinkedIn profiles in search results'
+        return None, error_detail
+
+    # Single result — use it directly (high confidence with exact name match)
+    if len(all_linkedin_results) == 1:
+        url = all_linkedin_results[0]['url']
+        logger.info('Single LinkedIn result: %s', url)
+        return url, 'Found (single match)'
+
+    # Multiple results — ask OpenAI to pick the best one
+    results_text = '\n'.join(
+        f'{i+1}. {r["title"]} — {r["url"]}\n   {r["snippet"]}'
+        for i, r in enumerate(all_linkedin_results[:8])
+    )
+
+    analysis = _openai_chat(
+        f'Which LinkedIn profile belongs to "{contact_name}" who works at/writes for "{platform_name}"?\n\n'
+        f'LinkedIn results:\n{results_text}\n\n'
+        'Return JSON: {"match": true/false, "url": "the linkedin url", "confidence": 0-100}\n'
+        'If none match, set match to false.',
+        'You are a LinkedIn profile matcher. Respond ONLY with valid JSON, no markdown.',
+        openai_key,
+    )
+
+    result = _parse_openai_json(analysis)
+    if result and result.get('match') and result.get('url'):
+        url = result['url'].split('?')[0].rstrip('/')
+        if 'linkedin.com/in/' in url:
+            confidence = result.get('confidence', '?')
+            logger.info('OpenAI picked: %s (confidence %s%%)', url, confidence)
+            return url, f'Found (confidence {confidence}%)'
+
+    # OpenAI didn't match — fall back to first result if name appears in title
+    contact_lower = contact_name.lower()
+    for r in all_linkedin_results:
+        if contact_lower in r['title'].lower():
+            logger.info('Fallback name match: %s', r['url'])
+            return r['url'], 'Found (name match in title)'
+
+    return None, f'Found {len(all_linkedin_results)} profiles but none matched confidently'
 
 
 # ---------------------------------------------------------------------------

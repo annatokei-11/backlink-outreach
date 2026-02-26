@@ -25,4 +25,12 @@ def create_app(config_name=None):
     from app.routes import main_bp
     app.register_blueprint(main_bp)
 
+    # Ensure app_settings table exists (safe even if it already does)
+    with app.app_context():
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        if 'app_settings' not in inspector.get_table_names():
+            from app.models import AppSetting
+            AppSetting.__table__.create(db.engine)
+
     return app
