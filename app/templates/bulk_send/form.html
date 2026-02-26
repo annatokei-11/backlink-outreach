@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Bulk Send{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Bulk Send</h2>
+        <small class="text-muted">Send a template to multiple platform contacts at once</small>
+    </div>
+</div>
+
+{% if not platforms %}
+<div class="text-center py-5">
+    <div class="empty-state">
+        <i class="bi bi-envelope-x display-1 text-muted"></i>
+        <h4 class="mt-3">No platforms with email addresses</h4>
+        <p class="text-muted">Add contact emails to your platforms first, or use the email finder.</p>
+        <a href="{{ url_for('main.platforms_list') }}" class="btn btn-primary">
+            <i class="bi bi-globe"></i> Go to Platforms
+        </a>
+    </div>
+</div>
+{% elif form.template_id.choices|length == 0 %}
+<div class="text-center py-5">
+    <div class="empty-state">
+        <i class="bi bi-file-earmark-text display-1 text-muted"></i>
+        <h4 class="mt-3">No email templates</h4>
+        <p class="text-muted">Create an email template before you can bulk send.</p>
+        <a href="{{ url_for('main.template_create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Template
+        </a>
+    </div>
+</div>
+{% else %}
+<form method="POST" id="bulkSendForm" onsubmit="return confirm('Send emails to ' + document.querySelectorAll('input[name=platform_ids]:checked').length + ' recipients?')">
+    {{ form.hidden_tag() }}
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-body">
+                    {{ form.template_id.label(class="form-label fw-semibold") }}
+                    {{ form.template_id(class="form-select", id="templateSelect") }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    {{ form.campaign_id.label(class="form-label fw-semibold") }}
+                    {{ form.campaign_id(class="form-select") }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-send"></i> Send to Selected
+            </button>
+        </div>
+    </div>
+
+    <!-- Preview panel -->
+    <div class="card mb-4" id="previewPanel" style="display:none;">
+        <div class="card-header d-flex justify-content-between">
+            <h6 class="mb-0"><i class="bi bi-eye"></i> Email Preview</h6>
+            <button type="button" class="btn-close" onclick="document.getElementById('previewPanel').style.display='none'"></button>
+        </div>
+        <div class="card-body">
+            <p class="mb-1"><strong>Subject:</strong> <span id="previewSubject"></span></p>
+            <hr>
+            <div id="previewBody"></div>
+        </div>
+    </div>
+
+    <!-- Recipients table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">Select Recipients ({{ platforms|length }} with email)</h6>
+            <div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(true)">Select All</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">Deselect All</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:40px;"></th>
+                        <th>Platform</th>
+                        <th>Contact</th>
+                        <th>Email</th>
+                        <th>Tier</th>
+                        <th>Status</th>
+                        <th style="width:80px;">Preview</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in platforms %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" name="platform_ids" value="{{ p.id }}"
+                                   class="form-check-input recipient-check">
+                        </td>
+                        <td class="fw-semibold">{{ p.name }}</td>
+                        <td>{{ p.contact_name or '' }}</td>
+                        <td><a href="mailto:{{ p.contact_email }}">{{ p.contact_email }}</a></td>
+                        <td>
+                            {% if p.tier %}
+                            <span class="tier-badge tier-{{ p.tier|lower }}">{{ p.tier }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ 'secondary' if p.status == 'Not Started' else 'info' }}">
+                                {{ p.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    onclick="previewEmail({{ p.id }})">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('.recipient-check').forEach(cb => cb.checked = checked);
+}
+
+function previewEmail(platformId) {
+    const templateId = document.getElementById('templateSelect').value;
+    if (!templateId) { alert('Select a template first'); return; }
+
+    fetch('{{ url_for("main.bulk_send_preview") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: 'template_id=' + templateId + '&platform_id=' + platformId
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('previewSubject').textContent = data.subject;
+        document.getElementById('previewBody').innerHTML = data.body;
+        document.getElementById('previewPanel').style.display = 'block';
+        document.getElementById('previewPanel').scrollIntoView({behavior: 'smooth'});
+    });
+}
+</script>
+{% endif %}
+{% endblock %}

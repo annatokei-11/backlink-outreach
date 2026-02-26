@@ -98,6 +98,19 @@ class SendEmailForm(FlaskForm):
     submit = SubmitField('Send Email')
 
 
+class EmailTemplateForm(FlaskForm):
+    name = StringField('Template Name', validators=[DataRequired()])
+    subject = StringField('Subject Line', validators=[DataRequired()])
+    body_html = TextAreaField('Email Body (HTML)', validators=[DataRequired()])
+    submit = SubmitField('Save Template')
+
+
+class BulkSendForm(FlaskForm):
+    template_id = SelectField('Email Template', coerce=int, validators=[DataRequired()])
+    campaign_id = SelectField('Campaign (optional)', coerce=int, validators=[Optional()])
+    submit = SubmitField('Send Emails')
+
+
 class UploadPlatformsForm(FlaskForm):
     file = FileField('Upload File', validators=[
         FileRequired(),

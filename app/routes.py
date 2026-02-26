@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 
 from app import db
-from app.models import Platform, Target, Campaign, OutreachEmail
+from app.models import Platform, Target, Campaign, OutreachEmail, EmailTemplate
 from app.forms import (PlatformForm, TargetForm, CampaignForm,
-                       OutreachEmailForm, SendEmailForm, UploadPlatformsForm)
+                       OutreachEmailForm, SendEmailForm, UploadPlatformsForm,
+                       EmailTemplateForm, BulkSendForm)
 from app.services.gmail_service import GmailService
 
 main_bp = Blueprint('main', __name__)
@@ -505,3 +506,200 @@ def email_delete(id):
     db.session.commit()
     flash('Email deleted.', 'success')
     return redirect(url_for('main.emails_list'))
+
+
+# ---------------------------------------------------------------------------
+# Email Templates CRUD
+# ---------------------------------------------------------------------------
+
+@main_bp.route('/templates')
+def templates_list():
+    templates = EmailTemplate.query.order_by(EmailTemplate.created_at.desc()).all()
+    return render_template('templates/list.html', templates=templates)
+
+
+@main_bp.route('/templates/new', methods=['GET', 'POST'])
+def template_create():
+    form = EmailTemplateForm()
+    if form.validate_on_submit():
+        tpl = EmailTemplate(
+            name=form.name.data,
+            subject=form.subject.data,
+            body_html=form.body_html.data,
+        )
+        db.session.add(tpl)
+        db.session.commit()
+        flash('Template created.', 'success')
+        return redirect(url_for('main.templates_list'))
+    return render_template('templates/form.html', form=form, title='New Template')
+
+
+@main_bp.route('/templates/<int:id>/edit', methods=['GET', 'POST'])
+def template_edit(id):
+    tpl = EmailTemplate.query.get_or_404(id)
+    form = EmailTemplateForm(obj=tpl)
+    if form.validate_on_submit():
+        tpl.name = form.name.data
+        tpl.subject = form.subject.data
+        tpl.body_html = form.body_html.data
+        db.session.commit()
+        flash('Template updated.', 'success')
+        return redirect(url_for('main.templates_list'))
+    return render_template('templates/form.html', form=form, title='Edit Template')
+
+
+@main_bp.route('/templates/<int:id>/delete', methods=['POST'])
+def template_delete(id):
+    tpl = EmailTemplate.query.get_or_404(id)
+    db.session.delete(tpl)
+    db.session.commit()
+    flash('Template deleted.', 'success')
+    return redirect(url_for('main.templates_list'))
+
+
+# ---------------------------------------------------------------------------
+# Email Finder (single platform + bulk)
+# ---------------------------------------------------------------------------
+
+@main_bp.route('/platforms/<int:id>/find-email', methods=['POST'])
+def platform_find_email(id):
+    from app.services.email_finder import find_email_for_platform
+
+    platform = Platform.query.get_or_404(id)
+
+    if not platform.contact_name:
+        flash(f'{platform.name}: no contact name — cannot search.', 'warning')
+        return redirect(url_for('main.platforms_list'))
+
+    result = find_email_for_platform(platform)
+
+    if result.found:
+        platform.contact_email = result.email
+        db.session.commit()
+        flash(f'Found email for {platform.contact_name}: {result.email} (via {result.source})', 'success')
+    else:
+        flash(f'{platform.name}: {result.error}', 'warning')
+
+    return redirect(url_for('main.platforms_list'))
+
+
+@main_bp.route('/platforms/find-emails', methods=['POST'])
+def platforms_find_emails_bulk():
+    from app.services.email_finder import find_email_for_platform
+
+    platforms = Platform.query.filter(
+        Platform.contact_name.isnot(None),
+        Platform.contact_name != '',
+        (Platform.contact_email.is_(None)) | (Platform.contact_email == ''),
+    ).all()
+
+    if not platforms:
+        flash('No platforms need email lookup (all have emails or no contact name).', 'info')
+        return redirect(url_for('main.platforms_list'))
+
+    found_count = 0
+    for platform in platforms:
+        result = find_email_for_platform(platform)
+        if result.found:
+            platform.contact_email = result.email
+            found_count += 1
+
+    db.session.commit()
+    flash(f'Searched {len(platforms)} platforms — found {found_count} new emails.', 'success')
+    return redirect(url_for('main.platforms_list'))
+
+
+# ---------------------------------------------------------------------------
+# Bulk Send
+# ---------------------------------------------------------------------------
+
+@main_bp.route('/bulk-send', methods=['GET', 'POST'])
+def bulk_send():
+    form = BulkSendForm()
+    form.template_id.choices = [
+        (t.id, t.name) for t in EmailTemplate.query.order_by(EmailTemplate.name).all()
+    ]
+    form.campaign_id.choices = [(0, '-- No Campaign --')] + [
+        (c.id, c.name) for c in Campaign.query.order_by(Campaign.name).all()
+    ]
+
+    # Platforms that have a contact email
+    platforms = Platform.query.filter(
+        Platform.contact_email.isnot(None),
+        Platform.contact_email != '',
+    ).order_by(Platform.name).all()
+
+    if request.method == 'POST' and form.validate_on_submit():
+        selected_ids = request.form.getlist('platform_ids', type=int)
+        if not selected_ids:
+            flash('Select at least one platform to send to.', 'warning')
+            return render_template('bulk_send/form.html', form=form, platforms=platforms)
+
+        template = EmailTemplate.query.get_or_404(form.template_id.data)
+        campaign_id = form.campaign_id.data if form.campaign_id.data != 0 else None
+
+        gmail = GmailService(
+            credentials_file=current_app.config.get('GMAIL_CREDENTIALS_FILE'),
+            token_file=current_app.config.get('GMAIL_TOKEN_FILE'),
+            sender_email=current_app.config.get('GMAIL_SENDER_EMAIL'),
+        )
+
+        sent = 0
+        errors = 0
+        for pid in selected_ids:
+            platform = Platform.query.get(pid)
+            if not platform or not platform.contact_email:
+                continue
+
+            subject, body = template.render(platform)
+
+            result = gmail.send_email(
+                to=platform.contact_email,
+                subject=subject,
+                body_html=body,
+            )
+
+            email_record = OutreachEmail(
+                platform_id=platform.id,
+                template_id=template.id,
+                campaign_id=campaign_id,
+                recipient_email=platform.contact_email,
+                subject=subject,
+                body=body,
+            )
+
+            if 'error' in result:
+                email_record.status = 'bounced'
+                errors += 1
+            else:
+                email_record.status = 'sent'
+                email_record.sent_at = datetime.now(timezone.utc)
+                email_record.gmail_message_id = result.get('id')
+                platform.status = 'Pitch Sent'
+                platform.pitch_sent_date = datetime.now(timezone.utc).date()
+                sent += 1
+
+            db.session.add(email_record)
+
+        db.session.commit()
+        flash(f'Sent {sent} emails ({errors} failed).', 'success' if sent else 'danger')
+        return redirect(url_for('main.emails_list'))
+
+    return render_template('bulk_send/form.html', form=form, platforms=platforms)
+
+
+@main_bp.route('/bulk-send/preview', methods=['POST'])
+def bulk_send_preview():
+    """AJAX endpoint: render a template for a specific platform (live preview)."""
+    template_id = request.form.get('template_id', type=int)
+    platform_id = request.form.get('platform_id', type=int)
+    if not template_id or not platform_id:
+        return jsonify({'subject': '', 'body': ''})
+
+    template = EmailTemplate.query.get(template_id)
+    platform = Platform.query.get(platform_id)
+    if not template or not platform:
+        return jsonify({'subject': '', 'body': ''})
+
+    subject, body = template.render(platform)
+    return jsonify({'subject': subject, 'body': body})
