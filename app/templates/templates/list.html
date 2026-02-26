@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Email Templates{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Email Templates</h2>
+        <small class="text-muted">{{ templates|length }} template{{ 's' if templates|length != 1 else '' }}</small>
+    </div>
+    <a href="{{ url_for('main.template_create') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-circle"></i> New Template
+    </a>
+</div>
+
+{% if templates %}
+<div class="row g-3">
+    {% for tpl in templates %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card template-card h-100">
+            <div class="card-body">
+                <h5 class="card-title mb-1">{{ tpl.name }}</h5>
+                <p class="text-muted small mb-2">
+                    <i class="bi bi-envelope"></i> {{ tpl.subject|truncate(60) }}
+                </p>
+                <div class="template-preview mb-3">{{ tpl.body_html|striptags|truncate(150) }}</div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">{{ tpl.created_at.strftime('%b %d, %Y') }}</small>
+                    <div>
+                        <a href="{{ url_for('main.template_edit', id=tpl.id) }}"
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                        <form method="POST" action="{{ url_for('main.template_delete', id=tpl.id) }}"
+                              class="d-inline" onsubmit="return confirm('Delete this template?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <div class="empty-state">
+        <i class="bi bi-file-earmark-text display-1 text-muted"></i>
+        <h4 class="mt-3">No templates yet</h4>
+        <p class="text-muted">Create a reusable email template with placeholders.</p>
+        <a href="{{ url_for('main.template_create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Template
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

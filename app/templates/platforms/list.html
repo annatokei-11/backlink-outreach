@@ -18,6 +18,14 @@
             </button>
         </form>
         {% endif %}
+        <form method="POST" action="{{ url_for('main.platforms_find_emails_bulk') }}"
+              class="d-inline"
+              onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='<span class=\'spinner-border spinner-border-sm\'></span> Searching...'; return true;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-info btn-sm">
+                <i class="bi bi-search"></i> Find All Emails
+            </button>
+        </form>
         <a href="{{ url_for('main.platform_upload') }}" class="btn btn-success btn-sm">
             <i class="bi bi-upload"></i> Upload CSV / Excel
         </a>
@@ -91,6 +99,15 @@
                     <td>
                         {% if p.contact_email %}
                         <a href="mailto:{{ p.contact_email }}" class="text-decoration-none">{{ p.contact_email }}</a>
+                        {% elif p.contact_name %}
+                        <form method="POST" action="{{ url_for('main.platform_find_email', id=p.id) }}"
+                              class="d-inline"
+                              onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').innerHTML='<span class=\'spinner-border spinner-border-sm\'></span>'; return true;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-xs btn-outline-info" title="Find email for {{ p.contact_name }}">
+                                <i class="bi bi-search"></i> Find
+                            </button>
+                        </form>
                         {% endif %}
                     </td>
                     <td class="date-cell">{{ p.pitch_sent_date.strftime('%b %d') if p.pitch_sent_date else '' }}</td>

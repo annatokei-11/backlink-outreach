@@ -77,12 +77,55 @@ class Campaign(db.Model):
         return f'<Campaign {self.name}>'
 
 
+class EmailTemplate(db.Model):
+    __tablename__ = 'email_templates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(500), nullable=False)
+    body_html = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+    def render(self, platform):
+        """Render template with platform data.
+
+        Supported placeholders:
+          {{contact_name}}, {{platform_name}}, {{platform_url}},
+          {{contact_first_name}}, {{tier}}, {{topic}}
+        """
+        first_name = ''
+        if platform.contact_name:
+            first_name = platform.contact_name.strip().split()[0]
+
+        replacements = {
+            '{{contact_name}}': platform.contact_name or '',
+            '{{contact_first_name}}': first_name,
+            '{{platform_name}}': platform.name or '',
+            '{{platform_url}}': platform.url or '',
+            '{{tier}}': platform.tier or '',
+            '{{topic}}': platform.topic_to_submit or '',
+        }
+        subject = self.subject
+        body = self.body_html
+        for placeholder, value in replacements.items():
+            subject = subject.replace(placeholder, value)
+            body = body.replace(placeholder, value)
+        return subject, body
+
+    def __repr__(self):
+        return f'<EmailTemplate {self.name}>'
+
+
 class OutreachEmail(db.Model):
     __tablename__ = 'outreach_emails'
 
     id = db.Column(db.Integer, primary_key=True)
-    target_id = db.Column(db.Integer, db.ForeignKey('targets.id'), nullable=False)
+    target_id = db.Column(db.Integer, db.ForeignKey('targets.id'), nullable=True)
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaigns.id'), nullable=True)
+    platform_id = db.Column(db.Integer, db.ForeignKey('platforms.id'), nullable=True)
+    template_id = db.Column(db.Integer, db.ForeignKey('email_templates.id'), nullable=True)
     recipient_email = db.Column(db.String(200), nullable=False)
     subject = db.Column(db.String(500), nullable=False)
     body = db.Column(db.Text, nullable=False)
@@ -92,6 +135,9 @@ class OutreachEmail(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
+
+    platform = db.relationship('Platform', backref=db.backref('outreach_emails', lazy='dynamic'))
+    template = db.relationship('EmailTemplate', backref=db.backref('emails', lazy='dynamic'))
 
     def __repr__(self):
         return f'<OutreachEmail to={self.recipient_email} status={self.status}>'
