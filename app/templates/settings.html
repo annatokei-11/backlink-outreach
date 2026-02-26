@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-1">Settings</h2>
+        <p class="text-muted mb-4">Configure your API keys for email finding. Keys are stored in the database — not in files.</p>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-search"></i> LinkedIn Search (required for email finding)</h6>
+                </div>
+                <div class="card-body">
+                    {% for key, label in api_keys %}
+                        {% if key in ('SERPER_API_KEY', 'OPENAI_API_KEY') %}
+                        <div class="mb-3">
+                            <label for="{{ key }}" class="form-label fw-semibold">{{ label }}</label>
+                            <div class="input-group">
+                                <input type="password"
+                                       class="form-control font-monospace"
+                                       id="{{ key }}"
+                                       name="{{ key }}"
+                                       value="{{ current_keys[key] }}"
+                                       placeholder="Paste your {{ label }} key"
+                                       autocomplete="off">
+                                <button type="button" class="btn btn-outline-secondary"
+                                        onclick="toggleKey(this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            {% if current_keys[key] %}
+                            <small class="text-success"><i class="bi bi-check-circle"></i> Configured</small>
+                            {% else %}
+                            <small class="text-muted">Not set</small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-envelope"></i> Email Providers (waterfall — tries in order, stops when found)</h6>
+                </div>
+                <div class="card-body">
+                    {% for key, label in api_keys %}
+                        {% if key not in ('SERPER_API_KEY', 'OPENAI_API_KEY') %}
+                        <div class="mb-3">
+                            <label for="{{ key }}" class="form-label fw-semibold">{{ label }}</label>
+                            <div class="input-group">
+                                <input type="password"
+                                       class="form-control font-monospace"
+                                       id="{{ key }}"
+                                       name="{{ key }}"
+                                       value="{{ current_keys[key] }}"
+                                       placeholder="Paste your {{ label }} key"
+                                       autocomplete="off">
+                                <button type="button" class="btn btn-outline-secondary"
+                                        onclick="toggleKey(this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            {% if current_keys[key] %}
+                            <small class="text-success"><i class="bi bi-check-circle"></i> Configured</small>
+                            {% else %}
+                            <small class="text-muted">Not set — will be skipped</small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg"></i> Save All Keys
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleKey(btn) {
+    const input = btn.parentElement.querySelector('input');
+    const icon = btn.querySelector('i');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+</script>
+{% endblock %}

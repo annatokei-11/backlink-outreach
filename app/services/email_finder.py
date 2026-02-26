@@ -95,10 +95,19 @@ def _fetch_page_text(url: str) -> str:
     return ''
 
 
+def _get_key(name: str) -> str:
+    """Read an API key: try DB (AppSetting) first, fall back to app config."""
+    from app.models import AppSetting
+    val = AppSetting.get(name, '')
+    if val:
+        return val
+    return current_app.config.get(name, '')
+
+
 def find_linkedin(contact_name: str, platform_name: str) -> Tuple[Optional[str], str]:
     """Two-phase LinkedIn search: gather intelligence then targeted search."""
-    serper_key = current_app.config.get('SERPER_API_KEY')
-    openai_key = current_app.config.get('OPENAI_API_KEY')
+    serper_key = _get_key('SERPER_API_KEY')
+    openai_key = _get_key('OPENAI_API_KEY')
 
     if not serper_key:
         return None, 'No Serper API key configured'
@@ -361,7 +370,6 @@ def find_email_for_platform(platform) -> EmailResult:
 
     Returns an EmailResult with the best email found (or .found == False).
     """
-    cfg = current_app.config
     contact = platform.contact_name
     if not contact:
         return EmailResult(error='No contact name on this platform')
@@ -373,24 +381,25 @@ def find_email_for_platform(platform) -> EmailResult:
     if not linkedin_url:
         return EmailResult(error=f'LinkedIn not found: {linkedin_status}')
 
-    # Step 2 — email waterfall
+    # Step 2 — email waterfall (keys read from DB or config)
     providers = [
-        ('Kendo', lambda: _try_kendo(linkedin_url, cfg['KENDO_API_KEY'])),
-        ('SalesQL', lambda: _try_salesql(linkedin_url, cfg['SALESQL_API_KEY'])),
-        ('Apollo', lambda: _try_apollo(linkedin_url, cfg['APOLLO_API_KEY'])),
-        ('Snov', lambda: _try_snov(linkedin_url, cfg['SNOV_CLIENT_ID'], cfg['SNOV_CLIENT_SECRET'])),
-        ('RocketReach', lambda: _try_rocketreach(linkedin_url, cfg['ROCKETREACH_API_KEY'])),
+        ('Kendo',       lambda: _try_kendo(linkedin_url, _get_key('KENDO_API_KEY'))),
+        ('SalesQL',     lambda: _try_salesql(linkedin_url, _get_key('SALESQL_API_KEY'))),
+        ('Apollo',      lambda: _try_apollo(linkedin_url, _get_key('APOLLO_API_KEY'))),
+        ('Snov',        lambda: _try_snov(linkedin_url, _get_key('SNOV_CLIENT_ID'), _get_key('SNOV_CLIENT_SECRET'))),
+        ('RocketReach', lambda: _try_rocketreach(linkedin_url, _get_key('ROCKETREACH_API_KEY'))),
     ]
 
+    key_checks = {
+        'Kendo':       _get_key('KENDO_API_KEY'),
+        'SalesQL':     _get_key('SALESQL_API_KEY'),
+        'Apollo':      _get_key('APOLLO_API_KEY'),
+        'Snov':        _get_key('SNOV_CLIENT_ID') and _get_key('SNOV_CLIENT_SECRET'),
+        'RocketReach': _get_key('ROCKETREACH_API_KEY'),
+    }
+
     for name, provider_fn in providers:
-        key_check = {
-            'Kendo': cfg.get('KENDO_API_KEY'),
-            'SalesQL': cfg.get('SALESQL_API_KEY'),
-            'Apollo': cfg.get('APOLLO_API_KEY'),
-            'Snov': cfg.get('SNOV_CLIENT_ID') and cfg.get('SNOV_CLIENT_SECRET'),
-            'RocketReach': cfg.get('ROCKETREACH_API_KEY'),
-        }
-        if not key_check.get(name):
+        if not key_checks.get(name):
             continue
 
         result = provider_fn()
